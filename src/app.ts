@@ -10,6 +10,7 @@ import authRoutes from "./core/auth/auth.routes";
 import announcementRoutes from "./core/announcements/announcement.routes";
 import requestRoutes from "./core/requests/request.routes";
 import stationeryRoutes from "./modules/sangrah/routes/stationery.routes";
+import freshServeRoutes from "./modules/fresh-serve/routes/freshServe.routes";
 import { ApiResponseUtil } from "./utils/apiResponse";
 
 const app = express();
@@ -71,6 +72,9 @@ app.use('/api/v1/requests', requestRoutes);
 
 // SANGRAH - Stationery Management routes
 app.use('/api/v1/sangrah', stationeryRoutes);
+
+// FRESH SERVE - Food Ordering and Management routes
+app.use('/api/v1/fresh-serve', freshServeRoutes);
 
 // Root route
 app.get('/', (req, res) => {
