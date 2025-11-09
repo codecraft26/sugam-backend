@@ -27,6 +27,9 @@ export class Courier {
   @Column({ type: 'varchar', length: 100, nullable: true })
   courier_partner_name!: string | null; // BlueDart, DTDC, etc.
 
+  @Column({ type: 'varchar', length: 20, default: 'INCOMING' })
+  courier_type!: string; // INCOMING, OUTGOING
+
   @Column({ type: 'varchar', length: 150, nullable: true })
   sender: string;
 

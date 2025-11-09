@@ -11,6 +11,8 @@ import announcementRoutes from "./core/announcements/announcement.routes";
 import requestRoutes from "./core/requests/request.routes";
 import stationeryRoutes from "./modules/sangrah/routes/stationery.routes";
 import freshServeRoutes from "./modules/fresh-serve/routes/freshServe.routes";
+import courierRoutes from "./modules/sandesh/routes/courier.routes";
+import visitorRoutes from "./modules/dwar/routes/visitor.routes";
 import { ApiResponseUtil } from "./utils/apiResponse";
 
 const app = express();
@@ -75,6 +77,12 @@ app.use('/api/v1/sangrah', stationeryRoutes);
 
 // FRESH SERVE - Food Ordering and Management routes
 app.use('/api/v1/fresh-serve', freshServeRoutes);
+
+// SANDESH - Courier Management routes
+app.use('/api/v1/sandesh', courierRoutes);
+
+// DWAR - Visitor Management System routes
+app.use('/api/v1/dwar', visitorRoutes);
 
 // Root route
 app.get('/', (req, res) => {

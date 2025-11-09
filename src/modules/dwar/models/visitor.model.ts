@@ -28,8 +28,23 @@ export class Visitor {
   @Column({ type: 'varchar', length: 20, nullable: true })
   contact_no: string;
 
+  @Column({ type: 'varchar', length: 120, nullable: true })
+  email!: string | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  visitor_type!: string | null; // Guest, Vendor, Delivery, VIP, VVIP
+
   @Column({ type: 'text', nullable: true })
   purpose: string;
+
+  @Column({ type: 'text', nullable: true })
+  access_areas!: string | null; // JSON array for VIP/VVIP
+
+  @Column({ type: 'text', nullable: true })
+  custom_fields!: string | null; // JSON for custom fields
+
+  @Column({ type: 'text', nullable: true })
+  additional_comments!: string | null;
 
   @Column({ type: 'uuid', nullable: true })
   visiting_user: string;
