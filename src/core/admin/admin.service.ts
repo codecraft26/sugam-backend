@@ -1,6 +1,7 @@
 // Admin service
 import { AppDataSource } from '../../config/data-source';
 import { Admin } from './admin.model';
+import { User } from '../users/user.model';
 import { logger } from '../../config/logger';
 import * as bcrypt from 'bcryptjs';
 
@@ -198,9 +199,14 @@ export class AdminService {
 
   /**
    * Delete admin (only by superadmin in same tenant)
+   * This will cascade delete related records:
+   * - Admin assignments
+   * - Admin permissions
+   * - Admin onboarding requests
    */
-  async deleteAdmin(id: string, tenant_id: string): Promise<void> {
+  async deleteAdmin(id: string, tenant_id: string): Promise<{ deletedAdmin: Admin }> {
     try {
+      // First, find admin without relations (in case tables don't exist)
       const admin = await this.adminRepository.findOne({
         where: { id, tenant_id },
       });
@@ -211,13 +217,255 @@ export class AdminService {
 
       // Don't allow deleting superadmin
       if (admin.is_super_admin) {
-        throw new Error('Cannot delete superadmin through this endpoint');
+        throw new Error('Cannot delete superadmin. Superadmins can only be deleted by platform admins.');
       }
 
+      // Try to load relations for logging (gracefully handle if tables don't exist)
+      let assignmentCount = 0;
+      let permissionCount = 0;
+      let requestCount = 0;
+
+      try {
+        const adminWithRelations = await this.adminRepository.findOne({
+          where: { id, tenant_id },
+          relations: ['adminAssignments', 'adminPermissions', 'adminOnboardingRequests'],
+        });
+        
+        if (adminWithRelations) {
+          assignmentCount = adminWithRelations.adminAssignments?.length || 0;
+          permissionCount = adminWithRelations.adminPermissions?.length || 0;
+          requestCount = adminWithRelations.adminOnboardingRequests?.length || 0;
+        }
+      } catch (relationError: any) {
+        // If relations don't exist, just log a warning and continue
+        logger.warn('Could not load admin relations for deletion logging (tables may not exist):', relationError.message);
+      }
+
+      logger.info(`Deleting admin: ${admin.email}`, {
+        admin_id: admin.id,
+        tenant_id: admin.tenant_id,
+        module_scope: admin.module_scope,
+        assignments_count: assignmentCount,
+        permissions_count: permissionCount,
+        requests_count: requestCount,
+      });
+
+      // Delete admin (CASCADE will automatically delete related records if they exist)
       await this.adminRepository.remove(admin);
-      logger.info(`Admin deleted: ${admin.email}`);
+
+      logger.info(`Admin deleted successfully: ${admin.email}`, {
+        admin_id: admin.id,
+        deleted_assignments: assignmentCount,
+        deleted_permissions: permissionCount,
+        deleted_requests: requestCount,
+      });
+
+      return { deletedAdmin: admin };
     } catch (error: any) {
       logger.error('Error deleting admin:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Approve user (by superadmin)
+   * Sets is_verified to true and records approved_by, allowing user to login
+   */
+  async approveUser(user_id: string, tenant_id: string, approved_by: string): Promise<User> {
+    try {
+      const userRepository = AppDataSource.getRepository(User);
+      
+      const user = await userRepository.findOne({
+        where: { id: user_id, tenant_id },
+      });
+
+      if (!user) {
+        throw new Error('User not found in your tenant');
+      }
+
+      if (user.is_verified) {
+        throw new Error('User is already verified');
+      }
+
+      // Verify the approver is a superadmin
+      const approver = await this.adminRepository.findOne({
+        where: { id: approved_by, tenant_id, is_super_admin: true },
+      });
+
+      if (!approver) {
+        throw new Error('Only superadmins can approve users');
+      }
+
+      user.is_verified = true;
+      user.approved_by = approved_by;
+      const updatedUser = await userRepository.save(user);
+      
+      logger.info(`User approved by superadmin: ${user.email} (Approved by: ${approver.email})`);
+      return updatedUser;
+    } catch (error: any) {
+      logger.error('Error approving user:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reject user (by superadmin)
+   * Keeps is_verified as false, or optionally deletes the user
+   */
+  async rejectUser(user_id: string, tenant_id: string, rejected_by: string, deleteUser: boolean = false): Promise<void> {
+    try {
+      const userRepository = AppDataSource.getRepository(User);
+      
+      const user = await userRepository.findOne({
+        where: { id: user_id, tenant_id },
+      });
+
+      if (!user) {
+        throw new Error('User not found in your tenant');
+      }
+
+      if (deleteUser) {
+        await userRepository.remove(user);
+        logger.info(`User rejected and deleted by superadmin: ${user.email} (Rejected by: ${rejected_by})`);
+      } else {
+        // Keep user but ensure is_verified is false
+        user.is_verified = false;
+        user.approved_by = null;
+        await userRepository.save(user);
+        logger.info(`User rejected by superadmin: ${user.email} (Rejected by: ${rejected_by})`);
+      }
+    } catch (error: any) {
+      logger.error('Error rejecting user:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get pending users (users waiting for approval - is_verified: false or NULL)
+   */
+  async getPendingUsers(tenant_id: string): Promise<User[]> {
+    try {
+      const userRepository = AppDataSource.getRepository(User);
+      
+      // Use QueryBuilder to handle both false and NULL values for is_verified
+      let query = userRepository
+        .createQueryBuilder('user')
+        .where('user.tenant_id = :tenant_id', { tenant_id })
+        .andWhere('(user.is_verified = false OR user.is_verified IS NULL)')
+        .orderBy('user.created_at', 'DESC');
+      
+      // Try to load relations, but gracefully handle if they don't exist
+      try {
+        query = query
+          .leftJoinAndSelect('user.organization', 'organization')
+          .leftJoinAndSelect('user.role', 'role')
+          .leftJoinAndSelect('user.approver', 'approver');
+        
+        return await query.getMany();
+      } catch (relationError: any) {
+        // If relation tables don't exist, try loading without approver relation
+        if (relationError.message && relationError.message.includes('does not exist')) {
+          logger.warn('Relation tables may not exist. Loading users without relations:', relationError.message);
+          try {
+            query = userRepository
+              .createQueryBuilder('user')
+              .where('user.tenant_id = :tenant_id', { tenant_id })
+              .andWhere('(user.is_verified = false OR user.is_verified IS NULL)')
+              .leftJoinAndSelect('user.organization', 'organization')
+              .leftJoinAndSelect('user.role', 'role')
+              .orderBy('user.created_at', 'DESC');
+            
+            return await query.getMany();
+          } catch (innerError: any) {
+            // If even organization/role don't exist, load without any relations
+            query = userRepository
+              .createQueryBuilder('user')
+              .where('user.tenant_id = :tenant_id', { tenant_id })
+              .andWhere('(user.is_verified = false OR user.is_verified IS NULL)')
+              .orderBy('user.created_at', 'DESC');
+            
+            return await query.getMany();
+          }
+        } else {
+          throw relationError;
+        }
+      }
+    } catch (error: any) {
+      logger.error('Error fetching pending users:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all users in tenant (for superadmin)
+   */
+  async getTenantUsers(tenant_id: string, options: { includeInactive?: boolean; includeUnverified?: boolean } = {}): Promise<User[]> {
+    try {
+      const userRepository = AppDataSource.getRepository(User);
+      
+      const where: any = { tenant_id };
+      if (options.includeInactive === false) {
+        where.is_active = true;
+      }
+      if (options.includeUnverified === false) {
+        where.is_verified = true;
+      }
+
+      try {
+        return await userRepository.find({
+          where,
+          relations: ['organization', 'role', 'approver'],
+          order: { created_at: 'DESC' },
+        });
+      } catch (relationError: any) {
+        // If relation tables don't exist, try loading without approver relation
+        if (relationError.message && relationError.message.includes('does not exist')) {
+          logger.warn('Relation tables may not exist. Loading users without relations:', relationError.message);
+          try {
+            return await userRepository.find({
+              where,
+              relations: ['organization', 'role'],
+              order: { created_at: 'DESC' },
+            });
+          } catch (innerError: any) {
+            // If even organization/role don't exist, load without any relations
+            return await userRepository.find({
+              where,
+              order: { created_at: 'DESC' },
+            });
+          }
+        } else {
+          throw relationError;
+        }
+      }
+    } catch (error: any) {
+      logger.error('Error fetching tenant users:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete user (by superadmin)
+   * Permanently deletes a user from the tenant
+   */
+  async deleteUser(user_id: string, tenant_id: string, deleted_by: string): Promise<void> {
+    try {
+      const userRepository = AppDataSource.getRepository(User);
+      
+      const user = await userRepository.findOne({
+        where: { id: user_id, tenant_id },
+      });
+
+      if (!user) {
+        throw new Error('User not found in your tenant');
+      }
+
+      // Delete user (CASCADE will automatically delete related records if they exist)
+      await userRepository.remove(user);
+
+      logger.info(`User deleted by superadmin: ${user.email} (Deleted by: ${deleted_by})`);
+    } catch (error: any) {
+      logger.error('Error deleting user:', error);
       throw error;
     }
   }

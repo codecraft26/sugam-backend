@@ -42,6 +42,39 @@ export class FoodOrder {
   @Column({ type: 'text', nullable: true })
   admin_notes!: string | null;
 
+  @Column({ type: 'text', nullable: true })
+  comments!: string | null; // Employee comments (e.g., "No onions", "Extra spicy")
+
+  @Column({ type: 'time', nullable: true })
+  order_time!: string | null; // Time when order should be ready
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  room_name!: string | null; // Room/table/cabin info from QR code
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  table_name!: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  cabin_name!: string | null;
+
+  @Column({ type: 'boolean', default: false })
+  is_external_order!: boolean; // If ordered from Zomato/Swiggy
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  external_order_tracking!: string | null; // Tracking info for external orders
+
+  @Column({ type: 'boolean', default: false })
+  is_guest_order!: boolean; // If order is for guest/visitor
+
+  @Column({ type: 'uuid', nullable: true })
+  host_user_id!: string | null; // Host who placed order for guest
+
+  @Column({ type: 'timestamp', nullable: true })
+  pre_registration_time!: Date | null; // For guest pre-registration orders
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  organization_charge!: number | null; // X amount charged per transaction
+
   @Column({ type: 'varchar', length: 100, nullable: true })
   qr_code_link!: string | null; // QR code with room/table/cabin info
 

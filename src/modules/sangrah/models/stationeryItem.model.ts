@@ -28,6 +28,9 @@ export class StationeryItem {
   @Column({ type: 'text', nullable: true })
   description: string;
 
+  @Column({ type: 'varchar', length: 50 })
+  category: string; // Writing, Paper, Accessories, etc.
+
   @Column({ type: 'varchar', length: 20, nullable: true })
   unit: string;
 
@@ -45,6 +48,9 @@ export class StationeryItem {
 
   @Column({ type: 'varchar', length: 50, nullable: true })
   requirement_type!: string | null;
+
+  @Column({ type: 'varchar', length: 20, default: 'IN_STOCK' })
+  status: string; // IN_STOCK, OUT_OF_STOCK
 
   @CreateDateColumn({ type: 'timestamp', default: () => 'NOW()' })
   created_at: Date;

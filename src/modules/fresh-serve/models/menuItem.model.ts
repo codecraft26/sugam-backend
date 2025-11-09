@@ -20,11 +20,14 @@ export class MenuItem {
   @Column({ type: 'uuid', nullable: true })
   tenant_id!: string | null;
 
-  @Column({ type: 'varchar', length: 150, nullable: true })
-  name!: string | null;
+  @Column({ type: 'varchar', length: 150 })
+  name!: string;
 
-  @Column({ type: 'varchar', length: 50, nullable: true })
-  category!: string | null;
+  @Column({ type: 'text', nullable: true })
+  description!: string | null;
+
+  @Column({ type: 'varchar', length: 50 })
+  category!: string; // Breakfast, Lunch, Snacks, Dinner
 
   @Column({ type: 'uuid', nullable: true })
   menu_category_id!: string | null;
@@ -32,8 +35,8 @@ export class MenuItem {
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   price!: number | null;
 
-  @Column({ type: 'boolean', default: true })
-  available!: boolean;
+  @Column({ type: 'varchar', length: 20, default: 'AVAILABLE' })
+  status!: string; // AVAILABLE, OUT_OF_STOCK
 
   @Column({ type: 'time', nullable: true })
   menu_timing_start!: string | null;

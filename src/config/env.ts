@@ -44,6 +44,15 @@ const envSchema = z.object({
   // RazorPay Configuration
   RAZORPAY_KEY_ID: z.string().optional(),
   RAZORPAY_KEY_SECRET: z.string().optional(),
+  
+  // Email Configuration (Gmail SMTP)
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.string().transform(Number).optional(),
+  SMTP_SECURE: z.string().transform(val => val === 'true').optional(),
+  SMTP_USER: z.string().optional(), // Gmail email address
+  SMTP_PASSWORD: z.string().optional(), // Gmail App Password (not regular password)
+  SMTP_FROM_NAME: z.string().optional(),
+  SMTP_FROM_EMAIL: z.string().optional(), // Usually same as SMTP_USER
 });
 
 // Validate and export config

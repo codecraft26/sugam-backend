@@ -80,5 +80,8 @@ export class Admin {
 
   @OneToMany(() => AdminPermission, (permission) => permission.admin)
   adminPermissions!: AdminPermission[];
+
+  @OneToMany(() => User, (user) => user.approver)
+  approvedUsers!: User[]; // Users approved by this admin
 }
 

@@ -21,7 +21,7 @@ export class MeetingRoom {
   @Column({ type: 'uuid', nullable: true })
   tenant_id: string;
 
-  @Column({ type: 'varchar', length: 100, nullable: true })
+  @Column({ type: 'varchar', length: 100 })
   name: string;
 
   @Column({ type: 'int', nullable: true })

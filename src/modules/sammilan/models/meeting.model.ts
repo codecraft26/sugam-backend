@@ -93,6 +93,27 @@ export class Meeting {
   @Column({ type: 'varchar', length: 50, nullable: true })
   employee_band!: string | null; // For band-based booking rules
 
+  @Column({ type: 'text', nullable: true })
+  admin_comments!: string | null; // Admin comments on booking
+
+  @Column({ type: 'text', nullable: true })
+  host_response!: string | null; // Host response to admin comments
+
+  @Column({ type: 'boolean', default: false })
+  is_guest_meeting!: boolean; // For guest/visitor meetings
+
+  @Column({ type: 'uuid', nullable: true })
+  guest_visitor_id!: string | null; // Link to visitor if guest meeting
+
+  @Column({ type: 'boolean', default: false })
+  qr_code_generated!: boolean; // QR code generation status
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  qr_code_link!: string | null; // QR code link
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  wifi_password!: string | null; // Temporary WiFi password
+
   @CreateDateColumn({ type: 'timestamp', default: () => 'NOW()' })
   created_at: Date;
 

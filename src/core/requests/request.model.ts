@@ -7,11 +7,16 @@ import {
   UpdateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { Tenant } from '../tenancy/tenant.model';
 import { User } from '../users/user.model';
+import { Admin } from '../admin/admin.model';
 
 @Entity('requests')
+@Index(['tenant_id'])
+@Index(['user_id'])
+@Index(['status'])
 export class Request {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -29,7 +34,7 @@ export class Request {
   employee_id!: string | null;
 
   @Column({ type: 'varchar', length: 50, nullable: true })
-  module_scope!: string | null; // Related module (e.g., SANGRAH, DWAR)
+  module_scope!: string | null; // Related module (e.g., SANGRAH, DWAR, SAMMILAN, etc.)
 
   @Column({ type: 'text' })
   description!: string;
@@ -47,7 +52,7 @@ export class Request {
   admin_comments!: string | null;
 
   @Column({ type: 'uuid', nullable: true })
-  reviewed_by!: string | null;
+  reviewed_by!: string | null; // Admin ID who reviewed this request
 
   @CreateDateColumn({ type: 'timestamp', default: () => 'NOW()' })
   created_at!: Date;
@@ -64,8 +69,8 @@ export class Request {
   @JoinColumn({ name: 'user_id' })
   user!: User;
 
-  @ManyToOne(() => User, { onDelete: 'SET NULL' })
+  @ManyToOne(() => Admin, { onDelete: 'SET NULL' })
   @JoinColumn({ name: 'reviewed_by' })
-  reviewer!: User | null;
+  reviewer!: Admin | null;
 }
 

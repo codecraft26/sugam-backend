@@ -6,6 +6,10 @@ import healthRoutes from "./api/v1/health.routes";
 import platformRoutes from "./core/platform/platform.routes";
 import adminAuthRoutes from "./core/admin/adminAuth.routes";
 import adminRoutes from "./core/admin/admin.routes";
+import authRoutes from "./core/auth/auth.routes";
+import announcementRoutes from "./core/announcements/announcement.routes";
+import requestRoutes from "./core/requests/request.routes";
+import stationeryRoutes from "./modules/sangrah/routes/stationery.routes";
 import { ApiResponseUtil } from "./utils/apiResponse";
 
 const app = express();
@@ -55,6 +59,18 @@ app.use('/api/v1/admin', adminAuthRoutes);
 
 // Admin management routes (protected - requires superadmin)
 app.use('/api/v1/admin', adminRoutes);
+
+// User authentication routes
+app.use('/api/v1/auth', authRoutes);
+
+// Announcement routes (unified - works for both users and superadmins)
+app.use('/api/v1/announcements', announcementRoutes);
+
+// Request routes (unified - works for both users and superadmins)
+app.use('/api/v1/requests', requestRoutes);
+
+// SANGRAH - Stationery Management routes
+app.use('/api/v1/sangrah', stationeryRoutes);
 
 // Root route
 app.get('/', (req, res) => {

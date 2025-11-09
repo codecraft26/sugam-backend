@@ -14,6 +14,7 @@ import { Organization } from '../orgs/organization.model';
 import { Building } from '../orgs/building.model';
 import { Floor } from '../orgs/floor.model';
 import { Role } from '../roles/role.model';
+import { Admin } from '../admin/admin.model';
 
 @Entity('users')
 export class User {
@@ -53,6 +54,9 @@ export class User {
   @Column({ type: 'varchar', length: 50, nullable: true })
   employee_grade!: string | null; // For grade-based access
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  office_location!: string | null; // Office location/address
+
   @Column({ type: 'varchar', length: 20, nullable: true })
   phone: string;
 
@@ -65,8 +69,14 @@ export class User {
   @Column({ type: 'boolean', default: true })
   is_active: boolean;
 
+  @Column({ type: 'boolean', default: false })
+  is_verified: boolean; // User verification status (requires superadmin approval)
+
   @Column({ type: 'uuid', nullable: true })
   created_by!: string | null; // Admin who created this user (regular users only, not admins)
+
+  @Column({ type: 'uuid', nullable: true })
+  approved_by!: string | null; // Admin ID who approved this user (superadmin from admins table)
 
   @CreateDateColumn({ type: 'timestamp', default: () => 'NOW()' })
   created_at: Date;
@@ -98,4 +108,8 @@ export class User {
   @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
   @JoinColumn({ name: 'created_by' })
   creator: User | null;
+
+  @ManyToOne(() => Admin, { onDelete: 'SET NULL', nullable: true })
+  @JoinColumn({ name: 'approved_by' })
+  approver: Admin | null; // Admin (superadmin) who approved this user
 }

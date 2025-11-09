@@ -5,6 +5,8 @@ import { logger } from "./config/logger";
 import { initializeDatabase, closeDatabase } from "./config/db";
 import { loadCache } from "./loaders/cache.loader";
 import { closeRedis } from "./config/cache";
+import { loadEmail } from "./loaders/email.loader";
+import { closeEmailQueue } from "./core/email/email.queue";
 
 // Start server using config from env.ts
 const port = parseInt(config.PORT, 10);
@@ -19,6 +21,9 @@ async function startServer() {
 
     // Initialize Redis cache
     await loadCache();
+
+    // Initialize email service and queue
+    await loadEmail();
 
     // Start HTTP server
     server = app.listen(port, () => {
@@ -47,6 +52,9 @@ async function gracefulShutdown(signal: string) {
       logger.info('HTTP server closed');
       
       try {
+        // Close email queue
+        await closeEmailQueue();
+        
         // Close Redis connection
         await closeRedis();
         
