@@ -7,13 +7,16 @@ import { readdirSync } from 'fs';
 import path from 'path';
 
 // Function to get migration files, excluding seed files
+// At runtime, only load compiled .js files to avoid TypeScript loading issues
 function getMigrations(): string[] {
   try {
     const migrationsDir = path.join(process.cwd(), 'migrations');
     const files = readdirSync(migrationsDir);
+    // Only load .js files at runtime (compiled migrations)
+    // TypeORM CLI will handle .ts files directly
     return files
       .filter(file => 
-        (file.endsWith('.ts') || file.endsWith('.js')) && 
+        file.endsWith('.js') && // Only .js files at runtime
         !file.includes('seed')
       )
       .map(file => path.join(migrationsDir, file));
@@ -40,8 +43,10 @@ export const AppDataSource = new DataSource({
   username: config.DB_USER,
   password: config.DB_PASSWORD,
   database: config.DB_NAME,
-  // Paths relative to project root (works for both CLI and runtime)
-  entities: ['src/**/*.model.{ts,js}', 'dist/**/*.model.js'],
+  // Paths relative to project root
+  // Always use dist (compiled JS) at runtime to avoid loading TypeScript files
+  // TypeORM CLI uses ts-node and can load .ts files directly
+  entities: ['dist/**/*.model.js'],
   // Load migrations dynamically, excluding seed files
   migrations: getMigrations(),
   synchronize: false, // Never use true in production

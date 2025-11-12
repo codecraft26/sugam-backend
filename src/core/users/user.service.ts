@@ -528,3 +528,7 @@ export class UserService {
     }
   }
 }
+
+// Export singleton instance for backward compatibility
+// TODO: Refactor to use DI container following SOLID principles
+export const userService = new UserService();

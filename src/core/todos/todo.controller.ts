@@ -1,10 +1,8 @@
 // Todo controller
 import { Request, Response } from 'express';
-import { TodoService } from './todo.service';
+import { todoService } from './todo.service';
 import { logger } from '../../config/logger';
 import { ApiResponseUtil } from '../../utils/apiResponse';
-
-const todoService = new TodoService();
 
 export class TodoController {
   /**

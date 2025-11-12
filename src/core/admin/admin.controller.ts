@@ -1,15 +1,11 @@
 // Admin controller
 import { Request, Response } from 'express';
-import { AdminService } from './admin.service';
-import { AdminAuthService } from './adminAuth.service';
-import { UserService } from '../users/user.service';
+import { adminService } from './admin.service';
+import { adminAuthService } from './adminAuth.service';
+import { userService } from '../users/user.service';
 import { User } from '../users/user.model';
 import { logger } from '../../config/logger';
 import { ApiResponseUtil } from '../../utils/apiResponse';
-
-const adminService = new AdminService();
-const adminAuthService = new AdminAuthService();
-const userService = new UserService();
 
 export class AdminController {
   /**

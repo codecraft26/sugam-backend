@@ -1,10 +1,10 @@
 // Announcement controller
 import { Request, Response } from 'express';
-import { AnnouncementService } from './announcement.service';
+import { announcementService } from './announcement.service';
+import { AppDataSource } from '../../config/data-source';
+import { User } from '../users/user.model';
 import { logger } from '../../config/logger';
 import { ApiResponseUtil } from '../../utils/apiResponse';
-
-const announcementService = new AnnouncementService();
 
 export class AnnouncementController {
   /**
@@ -138,17 +138,12 @@ export class AnnouncementController {
         );
       }
 
-      // Import User repository to fetch user's department
-      const { AppDataSource } = await import('../../config/data-source');
-      const { User } = await import('../users/user.model');
+      // Fetch user department only - avoid loading relations that might not exist
       const userRepository = AppDataSource.getRepository(User);
-      
-      // Fetch user to get their department
       const user = await userRepository.findOne({
-        where: { id: req.user.id },
-        select: ['id', 'department'],
+        where: { id: req.user.id, tenant_id } as any,
+        select: ['id', 'department'], // Only select what we need
       });
-
       const userDepartment = user?.department || null;
 
       const announcements = await announcementService.getUserAnnouncements(
@@ -200,17 +195,12 @@ export class AnnouncementController {
 
       const { id } = req.params;
 
-      // Import User repository to fetch user's department
-      const { AppDataSource } = await import('../../config/data-source');
-      const { User } = await import('../users/user.model');
+      // Fetch user department only - avoid loading relations that might not exist
       const userRepository = AppDataSource.getRepository(User);
-      
-      // Fetch user to get their department
       const user = await userRepository.findOne({
-        where: { id: req.user.id },
-        select: ['id', 'department'],
+        where: { id: req.user.id, tenant_id } as any,
+        select: ['id', 'department'], // Only select what we need
       });
-
       const userDepartment = user?.department || null;
 
       // Get the announcement

@@ -1,10 +1,15 @@
-// Announcement service
-import { AppDataSource } from '../../config/data-source';
+// Announcement service - Following SOLID Principles
 import { Announcement } from './announcement.model';
-import { logger } from '../../config/logger';
+import { IAnnouncementRepository } from '../interfaces/repository.interface';
+import { ILoggerService } from '../interfaces/service.interface';
+import { IAnnouncementService } from '../interfaces/service.interface';
 
-export class AnnouncementService {
-  private announcementRepository = AppDataSource.getRepository(Announcement);
+// Announcement Service - Single Responsibility: Business Logic
+export class AnnouncementService implements IAnnouncementService {
+  constructor(
+    private announcementRepository: IAnnouncementRepository,
+    private logger: ILoggerService
+  ) {}
 
   /**
    * Create a new announcement (superadmin only)
@@ -34,10 +39,10 @@ export class AnnouncementService {
       });
 
       const savedAnnouncement = await this.announcementRepository.save(announcement);
-      logger.info(`Announcement created: ${savedAnnouncement.id} by admin ${data.created_by} (Department: ${data.department || 'ALL'})`);
+      this.logger.info(`Announcement created: ${savedAnnouncement.id} by admin ${data.created_by} (Department: ${data.department || 'ALL'})`);
       return savedAnnouncement;
     } catch (error: any) {
-      logger.error('Error creating announcement:', error);
+      this.logger.error('Error creating announcement:', error);
       throw error;
     }
   }
@@ -54,49 +59,12 @@ export class AnnouncementService {
     }
   ): Promise<Announcement[]> {
     try {
-      const where: any = {
-        tenant_id,
-      };
-
-      if (options?.department !== undefined) {
-        // If department is specified, show announcements for that department OR for all departments (null)
-        // This requires a more complex query
-        if (options.department === null) {
-          // Show only announcements for all departments
-          where.department = null;
-        } else {
-          // Show announcements for this department OR for all departments
-          // We'll need to use QueryBuilder for this OR condition
-          return await this.announcementRepository
-            .createQueryBuilder('announcement')
-            .where('announcement.tenant_id = :tenant_id', { tenant_id })
-            .andWhere(
-              '(announcement.department = :department OR announcement.department IS NULL)',
-              { department: options.department }
-            )
-            .andWhere(
-              options.is_active !== undefined
-                ? 'announcement.is_active = :is_active'
-                : '1=1',
-              options.is_active !== undefined ? { is_active: options.is_active } : {}
-            )
-            .orderBy('announcement.created_at', 'DESC')
-            .getMany();
-        }
-      }
-
-      if (options?.is_active !== undefined) {
-        where.is_active = options.is_active;
-      }
-
-      return await this.announcementRepository.find({
-        where,
-        order: {
-          created_at: 'DESC',
-        },
+      return await this.announcementRepository.findByTenant(tenant_id, {
+        department: options?.department,
+        is_active: options?.is_active,
       });
     } catch (error: any) {
-      logger.error('Error fetching tenant announcements:', error);
+      this.logger.error('Error fetching tenant announcements:', error);
       throw error;
     }
   }
@@ -113,18 +81,9 @@ export class AnnouncementService {
       // Show announcements that are:
       // 1. For all departments (department IS NULL), OR
       // 2. For the user's specific department
-      return await this.announcementRepository
-        .createQueryBuilder('announcement')
-        .where('announcement.tenant_id = :tenant_id', { tenant_id })
-        .andWhere('announcement.is_active = :is_active', { is_active: true })
-        .andWhere(
-          '(announcement.department = :department OR announcement.department IS NULL)',
-          { department: user_department }
-        )
-        .orderBy('announcement.created_at', 'DESC')
-        .getMany();
+      return await this.announcementRepository.findActiveByDepartment(tenant_id, user_department);
     } catch (error: any) {
-      logger.error('Error fetching user announcements:', error);
+      this.logger.error('Error fetching user announcements:', error);
       throw error;
     }
   }
@@ -137,14 +96,9 @@ export class AnnouncementService {
     tenant_id: string
   ): Promise<Announcement | null> {
     try {
-      return await this.announcementRepository.findOne({
-        where: {
-          id: announcement_id,
-          tenant_id,
-        },
-      });
+      return await this.announcementRepository.findOne(announcement_id, tenant_id);
     } catch (error: any) {
-      logger.error('Error fetching announcement:', error);
+      this.logger.error('Error fetching announcement:', error);
       throw error;
     }
   }
@@ -191,10 +145,10 @@ export class AnnouncementService {
       }
 
       const updatedAnnouncement = await this.announcementRepository.save(announcement);
-      logger.info(`Announcement updated: ${updatedAnnouncement.id}`);
+      this.logger.info(`Announcement updated: ${updatedAnnouncement.id}`);
       return updatedAnnouncement;
     } catch (error: any) {
-      logger.error('Error updating announcement:', error);
+      this.logger.error('Error updating announcement:', error);
       throw error;
     }
   }
@@ -213,12 +167,34 @@ export class AnnouncementService {
         throw new Error('Announcement not found');
       }
 
-      await this.announcementRepository.remove(announcement);
-      logger.info(`Announcement deleted: ${announcement_id}`);
+      await this.announcementRepository.delete(announcement_id, tenant_id);
+      this.logger.info(`Announcement deleted: ${announcement_id}`);
     } catch (error: any) {
-      logger.error('Error deleting announcement:', error);
+      this.logger.error('Error deleting announcement:', error);
       throw error;
     }
   }
 }
+
+// Export singleton instance - will be set by bootstrap
+// Using a getter function to avoid circular dependencies
+let _announcementService: AnnouncementService | null = null;
+
+export function setAnnouncementService(service: AnnouncementService): void {
+  _announcementService = service;
+}
+
+export function getAnnouncementService(): AnnouncementService {
+  if (!_announcementService) {
+    throw new Error('AnnouncementService not initialized. Make sure bootstrapDI() is called before using announcementService.');
+  }
+  return _announcementService;
+}
+
+// Proxy for backward compatibility
+export const announcementService = new Proxy({} as AnnouncementService, {
+  get(_target, prop) {
+    return getAnnouncementService()[prop as keyof AnnouncementService];
+  }
+});
 

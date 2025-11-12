@@ -1,17 +1,13 @@
 // User authentication controller
 import { Request, Response } from 'express';
-import { AuthService } from './auth.service';
-import { UserService } from '../users/user.service';
-import { AdminService } from '../admin/admin.service';
+import { authService } from './auth.service';
+import { userService } from '../users/user.service';
+import { adminService } from '../admin/admin.service';
 import { AppDataSource } from '../../config/data-source';
 import { Organization } from '../orgs/organization.model';
 import { logger } from '../../config/logger';
 import { ApiResponseUtil } from '../../utils/apiResponse';
 import { generateToken } from '../../utils/jwt';
-
-const authService = new AuthService();
-const userService = new UserService();
-const adminService = new AdminService();
 
 export class AuthController {
   /**

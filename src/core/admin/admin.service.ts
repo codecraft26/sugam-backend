@@ -470,3 +470,7 @@ export class AdminService {
     }
   }
 }
+
+// Export singleton instance for backward compatibility
+// TODO: Refactor to use DI container following SOLID principles
+export const adminService = new AdminService();

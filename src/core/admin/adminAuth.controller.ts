@@ -1,11 +1,9 @@
 // Superadmin authentication controller
 import { Request, Response } from 'express';
-import { AdminAuthService } from './adminAuth.service';
+import { adminAuthService } from './adminAuth.service';
 import { logger } from '../../config/logger';
 import { ApiResponseUtil } from '../../utils/apiResponse';
 import { generateToken } from '../../utils/jwt';
-
-const adminAuthService = new AdminAuthService();
 
 export class AdminAuthController {
   /**

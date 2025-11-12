@@ -1,8 +1,13 @@
+import "reflect-metadata"; // Required for TypeORM decorators
 import express from "express";
 import morgan from "morgan";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./config/swagger";
+import { bootstrapDI } from "./core/di/bootstrap";
 import healthRoutes from "./api/v1/health.routes";
+
+// Initialize DI container before any routes/services are loaded
+bootstrapDI();
 import platformRoutes from "./core/platform/platform.routes";
 import adminAuthRoutes from "./core/admin/adminAuth.routes";
 import adminRoutes from "./core/admin/admin.routes";

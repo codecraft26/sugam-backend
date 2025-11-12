@@ -839,6 +839,6 @@ export class CourierService {
   }
 }
 
-// Export singleton instance
+// Export singleton instance (legacy - use DI container for new code)
 export const courierService = new CourierService();
 

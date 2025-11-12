@@ -1,22 +1,29 @@
-// Superadmin authentication service
-import { AppDataSource } from '../../config/data-source';
+// Superadmin authentication service - Following SOLID Principles
 import { Admin } from './admin.model';
-import { logger } from '../../config/logger';
-import * as bcrypt from 'bcryptjs';
+import { IAdminRepository } from '../interfaces/repository.interface';
+import { IPasswordService } from '../interfaces/service.interface';
+import { ILoggerService } from '../interfaces/service.interface';
 
-export class AdminAuthService {
-  private adminRepository = AppDataSource.getRepository(Admin);
+// Interface for Admin Auth Service
+export interface IAdminAuthService {
+  login(email: string, password: string): Promise<Admin>;
+  getAdminById(id: string, tenant_id?: string): Promise<Admin | null>;
+}
+
+// Admin Auth Service - Single Responsibility: Admin Authentication
+export class AdminAuthService implements IAdminAuthService {
+  constructor(
+    private adminRepository: IAdminRepository,
+    private passwordService: IPasswordService,
+    private logger: ILoggerService
+  ) {}
 
   /**
    * Login admin or superadmin (unified login for both)
    */
   async login(email: string, password: string): Promise<Admin> {
     try {
-      // Find admin by email (can be either superadmin or regular admin)
-      const admin = await this.adminRepository.findOne({
-        where: { email },
-        relations: ['tenant'],
-      });
+      const admin = await this.adminRepository.findByEmail(email);
 
       if (!admin) {
         throw new Error('Invalid email or password');
@@ -26,21 +33,21 @@ export class AdminAuthService {
         throw new Error('Admin account is inactive');
       }
 
-      if (!admin.tenant) {
+      if (!admin.tenant_id) {
         throw new Error('Admin is not associated with a tenant');
       }
 
       // Verify password
-      const isPasswordValid = await bcrypt.compare(password, admin.password_hash);
+      const isPasswordValid = await this.passwordService.comparePassword(password, admin.password_hash);
       if (!isPasswordValid) {
         throw new Error('Invalid email or password');
       }
 
       const adminType = admin.is_super_admin ? 'Superadmin' : 'Admin';
-      logger.info(`${adminType} logged in: ${admin.email} (Tenant: ${admin.tenant.name}${admin.module_scope ? `, Module: ${admin.module_scope}` : ''})`);
+      this.logger.info(`${adminType} logged in: ${admin.email} (Tenant: ${admin.tenant_id}${admin.module_scope ? `, Module: ${admin.module_scope}` : ''})`);
       return admin;
     } catch (error: any) {
-      logger.error('Error in admin login:', error);
+      this.logger.error('Error in admin login:', error);
       throw error;
     }
   }
@@ -48,16 +55,34 @@ export class AdminAuthService {
   /**
    * Get admin by ID
    */
-  async getAdminById(id: string): Promise<Admin | null> {
+  async getAdminById(id: string, tenant_id?: string): Promise<Admin | null> {
     try {
-      return await this.adminRepository.findOne({
-        where: { id },
-        relations: ['tenant'],
-      });
+      return await this.adminRepository.findOne(id, tenant_id);
     } catch (error: any) {
-      logger.error('Error fetching admin:', error);
+      this.logger.error('Error fetching admin:', error);
       throw error;
     }
   }
 }
 
+// Export singleton instance - will be set by bootstrap
+// Using a getter function to avoid circular dependencies
+let _adminAuthService: AdminAuthService | null = null;
+
+export function setAdminAuthService(service: AdminAuthService): void {
+  _adminAuthService = service;
+}
+
+export function getAdminAuthService(): AdminAuthService {
+  if (!_adminAuthService) {
+    throw new Error('AdminAuthService not initialized. Make sure bootstrapDI() is called before using adminAuthService.');
+  }
+  return _adminAuthService;
+}
+
+// Proxy for backward compatibility
+export const adminAuthService = new Proxy({} as AdminAuthService, {
+  get(_target, prop) {
+    return getAdminAuthService()[prop as keyof AdminAuthService];
+  }
+});

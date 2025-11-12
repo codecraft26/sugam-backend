@@ -1,10 +1,14 @@
-// Todo service
-import { AppDataSource } from '../../config/data-source';
+// Todo service - Following SOLID Principles
 import { Todo } from './todo.model';
-import { logger } from '../../config/logger';
+import { ITodoRepository } from '../interfaces/repository.interface';
+import { ILoggerService, ITodoService } from '../interfaces/service.interface';
 
-export class TodoService {
-  private todoRepository = AppDataSource.getRepository(Todo);
+// Todo Service - Single Responsibility: Business Logic
+export class TodoService implements ITodoService {
+  constructor(
+    private todoRepository: ITodoRepository,
+    private logger: ILoggerService
+  ) {}
 
   /**
    * Create a new todo for a user
@@ -43,10 +47,10 @@ export class TodoService {
       });
 
       const savedTodo = await this.todoRepository.save(todo);
-      logger.info(`Todo created: ${savedTodo.id} by user ${data.user_id}`);
+      this.logger.info(`Todo created: ${savedTodo.id} by user ${data.user_id}`);
       return savedTodo;
     } catch (error: any) {
-      logger.error('Error creating todo:', error);
+      this.logger.error('Error creating todo:', error);
       throw error;
     }
   }
@@ -59,27 +63,9 @@ export class TodoService {
     priority?: number;
   }): Promise<Todo[]> {
     try {
-      const where: any = {
-        user_id,
-        tenant_id,
-      };
-
-      if (options?.is_completed !== undefined) {
-        where.is_completed = options.is_completed;
-      }
-
-      if (options?.priority !== undefined) {
-        where.priority = options.priority;
-      }
-
-      return await this.todoRepository.find({
-        where,
-        order: {
-          created_at: 'DESC',
-        },
-      });
+      return await this.todoRepository.findByUser(user_id, tenant_id, options);
     } catch (error: any) {
-      logger.error('Error fetching user todos:', error);
+      this.logger.error('Error fetching user todos:', error);
       throw error;
     }
   }
@@ -89,15 +75,9 @@ export class TodoService {
    */
   async getTodoById(todo_id: string, user_id: string, tenant_id: string): Promise<Todo | null> {
     try {
-      return await this.todoRepository.findOne({
-        where: {
-          id: todo_id,
-          user_id,
-          tenant_id,
-        },
-      });
+      return await this.todoRepository.findByUserAndId(todo_id, user_id, tenant_id);
     } catch (error: any) {
-      logger.error('Error fetching todo:', error);
+      this.logger.error('Error fetching todo:', error);
       throw error;
     }
   }
@@ -149,10 +129,10 @@ export class TodoService {
       }
 
       const updatedTodo = await this.todoRepository.save(todo);
-      logger.info(`Todo updated: ${updatedTodo.id} by user ${user_id}`);
+      this.logger.info(`Todo updated: ${updatedTodo.id} by user ${user_id}`);
       return updatedTodo;
     } catch (error: any) {
-      logger.error('Error updating todo:', error);
+      this.logger.error('Error updating todo:', error);
       throw error;
     }
   }
@@ -168,12 +148,34 @@ export class TodoService {
         throw new Error('Todo not found');
       }
 
-      await this.todoRepository.remove(todo);
-      logger.info(`Todo deleted: ${todo_id} by user ${user_id}`);
+      await this.todoRepository.delete(todo_id, tenant_id);
+      this.logger.info(`Todo deleted: ${todo_id} by user ${user_id}`);
     } catch (error: any) {
-      logger.error('Error deleting todo:', error);
+      this.logger.error('Error deleting todo:', error);
       throw error;
     }
   }
 }
+
+// Export singleton instance - will be set by bootstrap
+// Using a getter function to avoid circular dependencies
+let _todoService: TodoService | null = null;
+
+export function setTodoService(service: TodoService): void {
+  _todoService = service;
+}
+
+export function getTodoService(): TodoService {
+  if (!_todoService) {
+    throw new Error('TodoService not initialized. Make sure bootstrapDI() is called before using todoService.');
+  }
+  return _todoService;
+}
+
+// Proxy for backward compatibility
+export const todoService = new Proxy({} as TodoService, {
+  get(_target, prop) {
+    return getTodoService()[prop as keyof TodoService];
+  }
+});
 
