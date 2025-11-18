@@ -1,29 +1,59 @@
-name: Deploy
+name: Deploy to ECS
 
-# Controls when the action will run.
 on:
-  # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [prod]
+    branches: ["prod"]
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
+  deploy:
+    name: Build and Deploy to ECS
     runs-on: ubuntu-latest
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      - name: Deploy using ssh
-        uses: appleboy/ssh-action@master
+      # Step 1 — Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Step 2 — Configure AWS credentials
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
-          script: |
-            cd /home/ubuntu/api && \
-            git pull && \
-            cd /home/ubuntu/docker && \
-            sudo docker compose  up -d api --build
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-1   # ❗ change if required
+
+      # Step 3 — Login to ECR
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # Step 4 — Build, Tag, and Push image to ECR
+      - name: Build and Push Docker image
+        run: |
+          ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          ECR_REPO=${{ secrets.ECR_REPO }}
+          IMAGE_TAG=latest
+          ECR_URI=$ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/$ECR_REPO:$IMAGE_TAG
+
+          echo "Building image..."
+          docker build -t $ECR_URI .
+
+          echo "Pushing image to ECR..."
+          docker push $ECR_URI
+
+      # Step 5 — Render task definition with new image
+      - name: Fill in task-definition.json with new image
+        id: taskdef
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: ecs-task-def.json
+          container-name: api
+          image: ${{ steps.build_and_push_image.outputs.image }}
+
+      # Step 6 — Deploy updated task to ECS
+      - name: Deploy to ECS service
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.taskdef.outputs.task-definition }}
+          service: ${{ secrets.ECS_SERVICE }}
+          cluster: ${{ secrets.ECS_CLUSTER }}
+          wait-for-service-stability: true
